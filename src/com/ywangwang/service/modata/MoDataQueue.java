@@ -1,25 +1,23 @@
-package com.ywangwang.service.message;
+package com.ywangwang.service.modata;
 
 import java.util.LinkedList;
 import java.util.Queue;
 
-import com.ywangwang.service.message.MoMessage;
-
-public class MoMessageQueue {
-	private Queue<MoMessage> messageQueue = new LinkedList<MoMessage>();
+public class MoDataQueue {
+	private Queue<MoData> dataQueue = new LinkedList<MoData>();
 
 	private boolean online = false;
 	private int loginKey = 0;
 
-	public MoMessageQueue() {
+	public MoDataQueue() {
 	}
 
-	public synchronized MoMessage getMoMessage() {
-		return messageQueue.poll();
+	public synchronized MoData getMoData() {
+		return dataQueue.poll();
 	}
 
-	public synchronized boolean addMoMessage(MoMessage message) {
-		return messageQueue.add(message);
+	public synchronized boolean addMoData(MoData moData) {
+		return dataQueue.add(moData);
 	}
 
 	public boolean isOnline() {

@@ -2,7 +2,7 @@ package com.ywangwang.service.client;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.ywangwang.service.pool.MoMessageQueuePool;
+import com.ywangwang.service.pool.MoDataQueuePool;
 
 public class ClientPool {
 
@@ -59,8 +59,8 @@ public class ClientPool {
 		client.gxjOnline = new boolean[client.gxjIds.length];
 		for (int i = 0; i < client.gxjIds.length; i++) {
 			client.gxjOnline[i] = Client.OFFLINE;
-			if (MoMessageQueuePool.getInstance().getMoMessageQueue(client.gxjIds[i]) != null) {
-				if (MoMessageQueuePool.getInstance().getMoMessageQueue(client.gxjIds[i]).isOnline()) {
+			if (MoDataQueuePool.getInstance().getMoDataQueue(client.gxjIds[i]) != null) {
+				if (MoDataQueuePool.getInstance().getMoDataQueue(client.gxjIds[i]).isOnline()) {
 					client.gxjOnline[i] = Client.ONLINE;
 				}
 			}

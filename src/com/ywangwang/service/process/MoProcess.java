@@ -9,9 +9,9 @@ import com.ywangwang.service.client.ClientPool;
 import com.ywangwang.service.client.User;
 import com.ywangwang.service.connector.MoConnector;
 import com.ywangwang.service.main.Startup;
-import com.ywangwang.service.message.MoMessage;
+import com.ywangwang.service.modata.MoData;
 import com.ywangwang.service.pool.MoConnectorPool;
-import com.ywangwang.service.pool.MoMessageQueuePool;
+import com.ywangwang.service.pool.MoDataQueuePool;
 
 public class MoProcess extends Thread {
 	private final String TAG = "MoProcess->";
@@ -42,14 +42,14 @@ public class MoProcess extends Thread {
 				connector.close();
 				continue;
 			} else if (connector.id > 0) {
-				if (MoMessageQueuePool.isOnlineById(connector.id) == false) {
+				if (MoDataQueuePool.isOnlineById(connector.id) == false) {
 					connector.close();
 					continue;
-				} else if (connector.loginKey != MoMessageQueuePool.getLoginKeyById(connector.id)) {
-					MoMessage message = new MoMessage();
-					message.cmd = MoMessage.LOGIN_KEY_ERR;
-					message.info = "用户已在其他设备登录";
-					connector.sendMSG(message.toString());
+				} else if (connector.loginKey != MoDataQueuePool.getLoginKeyById(connector.id)) {
+					MoData moData = new MoData();
+					moData.setCmd(MoData.LOGIN_KEY_ERR);
+					moData.setInfo("用户已在其他设备登录");
+					connector.sendMSG(moData.toString());
 					connector.close();
 					continue;
 				}
@@ -62,7 +62,7 @@ public class MoProcess extends Thread {
 					if (connector.isTimeout() == true) {
 						connector.close();
 					} else {
-						findMessage(connector);
+						findData(connector);
 						MoConnectorPool.getInstance().addMoConnector(connector);
 					}
 				} else {
@@ -81,25 +81,25 @@ public class MoProcess extends Thread {
 	}
 
 	public void process(MoConnector connector) {
-		MoMessage message = null;
+		MoData moData = null;
 		User user = null;
 		Client client = null;
 		if (msg.trim().equals("ACK")) {
 			connector.sendMSG("ACK");
 		} else {
-			message = MoMessage.analyzeJsonData(msg);
+			moData = MoData.analyzeJsonData(msg);
 		}
-		if (message != null) {
-			if (message.cmd == MoMessage.LOGIN) {
-				user = User.analyzeJsonData(message.jsonData);
+		if (moData != null) {
+			if (moData.getCmd() == MoData.LOGIN) {
+				user = User.analyzeJsonData(moData.getJsonData());
 				client = ClientPool.getInstance().getClient(user.username);
 				if (client != null) {
 					if (client.username.equals(user.username) && client.password.equals(user.password)) {
-						message.cmd = MoMessage.LOGIN_SUCCESS;
-						if (message.type == MoMessage.TYPE_GXJ) {
+						moData.setCmd(MoData.LOGIN_SUCCESS);
+						if (moData.getType() == MoData.TYPE_GXJ) {
 							boolean have = false;
 							for (int i = 0; i < client.gxjIds.length; i++) {
-								if (client.gxjIds[i] == message.id) {
+								if (client.gxjIds[i] == moData.getId()) {
 									have = true;
 									break;
 								}
@@ -107,80 +107,80 @@ public class MoProcess extends Thread {
 							if (have == false) {
 								long[] newGxjIds = new long[client.gxjIds.length + 1];
 								System.arraycopy(client.gxjIds, 0, newGxjIds, 0, client.gxjIds.length);
-								newGxjIds[client.gxjIds.length] = message.id;
+								newGxjIds[client.gxjIds.length] = moData.getId();
 								client.gxjIds = newGxjIds;
 							}
 						} else {
-							message.id = client.id;
+							moData.setId(client.id);
 						}
-						// MoMessageQueuePool.setLoginKeyById(message.id, message.loginKey);
+						// MoDataQueuePool.setLoginKeyById(moData.id, moData.loginKey);
 						// 设置setOnlineById时，loginKey被同时设置。保证设置在线时，loginKey同时设置正确
-						MoMessageQueuePool.setOnlineById(message.id, message.loginKey, true);
-						connector.loginKey = message.loginKey;
+						MoDataQueuePool.setOnlineById(moData.getId(), moData.getLoginKey(), true);
+						connector.loginKey = moData.getLoginKey();
 					} else {
-						message.cmd = MoMessage.LOGIN_FAIL;
-						message.info = "密码错误";
-						message.id = 0;
+						moData.setCmd(MoData.LOGIN_FAIL);
+						moData.setInfo("密码错误");
+						moData.setId(0);
 					}
 				} else {
-					message.cmd = MoMessage.LOGIN_FAIL;
-					message.info = "无此用户";
-					message.id = 0;
+					moData.setCmd(MoData.LOGIN_FAIL);
+					moData.setInfo("无此用户");
+					moData.setId(0);
 				}
-				connector.id = message.id;
-				connector.sendMSG(message.toString());
-			} else if (message.cmd == MoMessage.LOGOUT) {
+				connector.id = moData.getId();
+				connector.sendMSG(moData.toString());
+			} else if (moData.getCmd() == MoData.LOGOUT) {
 				connector.close();
 				return;
 			} else if (connector.id < 1) {
-				message.cmd = MoMessage.Not_LOGGED;
-				connector.sendMSG(message.toString());
-			} else if (MoMessageQueuePool.getLoginKeyById(connector.id) != message.loginKey) {
-				message.cmd = MoMessage.LOGIN_KEY_ERR;
-				message.info = "用户已在其他设备登录";
-				connector.sendMSG(message.toString());
+				moData.setCmd(MoData.Not_LOGGED);
+				connector.sendMSG(moData.toString());
+			} else if (MoDataQueuePool.getLoginKeyById(connector.id) != moData.getLoginKey()) {
+				moData.setCmd(MoData.LOGIN_KEY_ERR);
+				moData.setInfo("用户已在其他设备登录");
+				connector.sendMSG(moData.toString());
 				connector.close();
 				return;
-			} else if (message.cmd == MoMessage.SEND_MESSAGE) {
-				System.out.println(TAG + "新message " + connector.id + " To " + Arrays.toString(message.toId));
-				for (int i = 0; i < message.toId.length; i++) {
-					MoMessageQueuePool.addMoMessageById(message.toId[i], message);
+			} else if (moData.getCmd() == MoData.SEND_MESSAGE) {
+				System.out.println(TAG + "新message " + connector.id + " To " + Arrays.toString(moData.getToId()));
+				for (int i = 0; i < moData.getToId().length; i++) {
+					MoDataQueuePool.addMoDataById(moData.getToId()[i], moData);
 				}
-			} else if (message.cmd == MoMessage.CONTROL_GXJ) {
-			} else if (message.cmd == MoMessage.GET_WATER_INFO) {
-			} else if (message.cmd == MoMessage.GET_GXJ) {
-				user = User.analyzeJsonData(message.jsonData);
+			} else if (moData.getCmd() == MoData.CONTROL_GXJ) {
+			} else if (moData.getCmd() == MoData.GET_WATER_INFO) {
+			} else if (moData.getCmd() == MoData.GET_GXJ) {
+				user = User.analyzeJsonData(moData.getJsonData());
 				client = ClientPool.getInstance().getClient(user.username);
 				if (client != null) {
 					if (client.password.equals(user.password)) {
-						message.cmd = MoMessage.GET_GXJ_SUCCESS;
-						message.jsonData = new JSONObject(client.toString());
+						moData.setCmd(MoData.GET_GXJ_SUCCESS);
+						moData.setJsonData(new JSONObject(client.toString()));
 					} else {
-						message.cmd = MoMessage.GET_GXJ_FAIL;
-						message.info = "密码错误";
+						moData.setCmd(MoData.GET_GXJ_FAIL);
+						moData.setInfo("密码错误");
 					}
 				} else {
-					message.cmd = MoMessage.GET_GXJ_FAIL;
-					message.info = "失败";
+					moData.setCmd(MoData.GET_GXJ_FAIL);
+					moData.setInfo("失败");
 				}
-				connector.sendMSG(message.toString());
+				connector.sendMSG(moData.toString());
 			}
 		}
-		findMessage(connector);
+		findData(connector);
 		MoConnectorPool.getInstance().addMoConnector(connector);
 	}
 
-	private void findMessage(MoConnector connector) {
+	private void findData(MoConnector connector) {
 		if (connector.id > 0) {
-			MoMessage moMessage = MoMessageQueuePool.getMoMessageById(connector.id);
-			if (moMessage != null) {
-				if (connector.sendMSG(moMessage.toString()) == false) {
-					System.out.println(TAG + connector.id + " message发送失败");
-					MoMessageQueuePool.addMoMessageById(connector.id, moMessage);
+			MoData moData = MoDataQueuePool.getMoDataById(connector.id);
+			if (moData != null) {
+				if (connector.sendMSG(moData.toString()) == false) {
+					System.out.println(TAG + connector.id + " data发送失败");
+					MoDataQueuePool.addMoDataById(connector.id, moData);
 					connector.close();
 					return;
 				} else {
-					System.out.println(TAG + connector.id + " message发送成功");
+					System.out.println(TAG + connector.id + " data发送成功");
 				}
 			}
 		}

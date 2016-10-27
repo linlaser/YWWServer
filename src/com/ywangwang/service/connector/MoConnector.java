@@ -8,7 +8,7 @@ import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 
-import com.ywangwang.service.pool.MoMessageQueuePool;
+import com.ywangwang.service.pool.MoDataQueuePool;
 
 public class MoConnector {
 	private final static String TAG = "MoConnector->";
@@ -82,7 +82,7 @@ public class MoConnector {
 
 	public void close() {
 		if (id > 0) {
-			MoMessageQueuePool.setOnlineById(id, loginKey, false);
+			MoDataQueuePool.setOnlineById(id, loginKey, false);
 			System.out.println(TAG + "setOffLine->id=" + id);
 		}
 		System.out.println(TAG + "id=" + id + ",close,loginKey=" + loginKey);
